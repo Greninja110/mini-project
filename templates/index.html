@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Object Detection with 3D AR</title>
+    <!-- Replace both Three.js and GLTFLoader with these -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/GLTFLoader.js"></script>
+    <!-- Add Three.js library -->
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script> -->
+    <!-- Add GLTFLoader for loading 3D models -->
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/GLTFLoader.js"></script> -->
+    <style>
+        :root {
+            --primary-color: #4a6cfa;
+            --secondary-color: #2dd4bf;
+            --dark-color: #1e293b;
+            --light-color: #f8fafc;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--dark-color);
+            color: var(--light-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background-color: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .logo h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #ffffff;
+            /* background: linear-gradient(to right, var(--primary-color), var(--secondary-color)); */
+            /* -webkit-background-clip: text; */
+            /* -webkit-text-fill-color: transparent; */
+            /* Fallback */
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+            border-radius: 8px;
+            color: white;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #22c55e;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(34, 197, 94, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+            }
+        }
+
+        main {
+            flex: 1;
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .video-container {
+            width: 100%;
+            height: calc(100vh - 180px);
+            min-height: 500px;
+            background-color: rgba(15, 23, 42, 0.7);
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: var(--shadow);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .video-feed {
+            display: block;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            cursor: pointer;
+        }
+
+        .video-overlay {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(8px);
+            padding: 1rem;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            min-width: 200px;
+        }
+
+        .overlay-item {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .overlay-item span:first-child {
+            color: #94a3b8;
+        }
+
+        .overlay-item span:last-child {
+            font-weight: 600;
+        }
+
+        .controls {
+            margin-top: 1.5rem;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #3b5bfa;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        .btn-secondary {
+            background-color: rgba(226, 232, 240, 0.1);
+            color: var(--light-color);
+        }
+
+        .btn-secondary:hover {
+            background-color: rgba(226, 232, 240, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .btn-active {
+            background-color: var(--secondary-color);
+            color: var(--dark-color);
+        }
+
+        footer {
+            padding: 1.5rem;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 0.875rem;
+        }
+
+        /* Objects Panel */
+        .objects-panel {
+            position: absolute;
+            left: 20px;
+            top: 20px;
+            background-color: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(8px);
+            padding: 1rem;
+            border-radius: 8px;
+            display: none;
+            flex-direction: column;
+            gap: 0.5rem;
+            min-width: 200px;
+            max-height: 80%;
+            overflow-y: auto;
+        }
+
+        .objects-title {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            color: var(--secondary-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .objects-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .object-item {
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            background-color: rgba(226, 232, 240, 0.1);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .object-item:hover {
+            background-color: rgba(226, 232, 240, 0.2);
+        }
+
+        .object-name {
+            font-weight: 500;
+        }
+
+        .object-confidence {
+            font-size: 0.8rem;
+            color: #94a3b8;
+        }
+
+        /* System Stats Panel */
+        .stats-panel {
+            position: absolute;
+            left: 20px;
+            bottom: 20px;
+            background-color: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(8px);
+            padding: 1rem;
+            border-radius: 8px;
+            display: none;
+            flex-direction: column;
+            gap: 0.8rem;
+            min-width: 250px;
+        }
+
+        .stats-title {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            color: var(--secondary-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stat-item {
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            display: block;
+            color: #94a3b8;
+            font-size: 0.8rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .stat-value {
+            display: block;
+            font-weight: 500;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background-color: rgba(226, 232, 240, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 0.25rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+
+        /* AR Controls */
+        .ar-controls {
+            display: none;
+            /* Hidden initially */
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background-color: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(8px);
+            padding: 1.5rem;
+            border-radius: 12px;
+        }
+
+        .ar-title {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            color: var(--secondary-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .ar-items {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .ar-item {
+            padding: 1rem;
+            border-radius: 8px;
+            background-color: rgba(226, 232, 240, 0.1);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 100px;
+            height: 100px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .ar-item:hover {
+            background-color: rgba(226, 232, 240, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .ar-item-icon {
+            font-size: 2rem;
+            color: var(--secondary-color);
+        }
+
+        .ar-item.selected {
+            background-color: var(--secondary-color);
+        }
+
+        .ar-item.selected .ar-item-icon,
+        .ar-item.selected span {
+            color: var(--dark-color);
+        }
+
+        .ar-instructions {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            background-color: rgba(226, 232, 240, 0.1);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .ar-instructions.active {
+            display: block;
+        }
+
+        .ar-canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 4;
+        }
+
+        #arCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .ar-active .video-feed {
+            pointer-events: auto;
+            cursor: crosshair;
+        }
+
+        .ar-processing {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(15, 23, 42, 0.9);
+            padding: 2rem;
+            border-radius: 12px;
+            text-align: center;
+            display: none;
+        }
+
+        .ar-processing.active {
+            display: block;
+        }
+
+        .loader {
+            width: 48px;
+            height: 48px;
+            border: 5px solid var(--secondary-color);
+            border-bottom-color: transparent;
+            border-radius: 50%;
+            display: inline-block;
+            box-sizing: border-box;
+            animation: rotation 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes rotation {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Close button */
+        .close-btn {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 0.2rem;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .close-btn:hover {
+            color: white;
+            background-color: rgba(226, 232, 240, 0.1);
+        }
+
+        @media (max-width: 768px) {
+            header {
+                padding: 1rem;
+            }
+
+            main {
+                padding: 1rem;
+            }
+
+            .video-container {
+                height: calc(100vh - 220px);
+            }
+
+            .video-overlay {
+                top: 10px;
+                right: 10px;
+                padding: 0.75rem;
+                min-width: 150px;
+            }
+
+            .objects-panel,
+            .stats-panel,
+            .ar-controls {
+                min-width: auto;
+                width: calc(100% - 40px);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="header-content">
+            <div class="logo">
+                <div class="logo-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect>
+                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                        <path d="M20.4 14.5L16 10 4 20"></path>
+                    </svg>
+                </div>
+                <h1>Real-time Object Detection</h1>
+            </div>
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span>Live</span>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div class="video-container" id="videoContainer">
+            <img src="{{ url_for('video_feed') }}" alt="Video Feed" class="video-feed" id="videoFeed">
+
+            <!-- 3D AR Canvas container -->
+            <div class="ar-canvas-container">
+                <canvas id="arCanvas"></canvas>
+            </div>
+
+            <div class="video-overlay">
+                <div class="overlay-item">
+                    <span>Status:</span>
+                    <span id="status">Online</span>
+                </div>
+                <div class="overlay-item">
+                    <span>FPS:</span>
+                    <span id="fps">Calculating...</span>
+                </div>
+                <div class="overlay-item">
+                    <span>Resolution:</span>
+                    <span>1920×1080</span>
+                </div>
+                <div class="overlay-item">
+                    <span>Model:</span>
+                    <span id="model">YOLOv8</span>
+                </div>
+            </div>
+
+            <!-- Objects Panel -->
+            <div class="objects-panel" id="objectsPanel">
+                <div class="objects-title">
+                    Detected Objects
+                    <button class="close-btn" id="closeObjectsBtn">×</button>
+                </div>
+                <div class="objects-list" id="objectsList">
+                    <!-- Objects will be populated dynamically -->
+                </div>
+            </div>
+
+            <!-- System Stats Panel -->
+            <div class="stats-panel" id="statsPanel">
+                <div class="stats-title">
+                    System Statistics
+                    <button class="close-btn" id="closeStatsBtn">×</button>
+                </div>
+
+                <div class="stat-item">
+                    <span class="stat-label">CPU Usage</span>
+                    <span class="stat-value" id="cpuUsage">0%</span>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="cpuBar" style="width: 0%; background-color: #3b82f6;"></div>
+                    </div>
+                </div>
+
+                <div class="stat-item">
+                    <span class="stat-label">Memory Usage</span>
+                    <span class="stat-value" id="memoryUsage">0 MB / 0 MB</span>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="memoryBar" style="width: 0%; background-color: #10b981;"></div>
+                    </div>
+                </div>
+
+                <div class="stat-item">
+                    <span class="stat-label">Integrated GPU Usage</span>
+                    <span class="stat-value" id="integratedGpuUsage">0%</span>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="integratedGpuBar" style="width: 0%; background-color: #f59e0b;">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stat-item">
+                    <span class="stat-label">NVIDIA RTX 3050 Usage</span>
+                    <span class="stat-value" id="nvidiaTx3050Usage">0%</span>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="nvidiaTx3050Bar" style="width: 0%; background-color: #ef4444;">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stat-item">
+                    <span class="stat-label">GPU Memory</span>
+                    <span class="stat-value" id="gpuMemory">0 MB / 0 MB</span>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="gpuMemoryBar" style="width: 0%; background-color: #8b5cf6;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AR Controls -->
+            <div class="ar-controls" id="arControls">
+                <div class="ar-title">
+                    Augmented Reality
+                    <button class="close-btn" id="closeArBtn">×</button>
+                </div>
+                <div class="ar-items">
+                    <div class="ar-item" data-item="chair">
+                        <div class="ar-item-icon">🪑</div>
+                        <span>Chair</span>
+                    </div>
+                    <div class="ar-item" data-item="table">
+                        <div class="ar-item-icon">🪟</div>
+                        <span>Table</span>
+                    </div>
+                    <div class="ar-item" data-item="bed">
+                        <div class="ar-item-icon">🛏️</div>
+                        <span>Bed</span>
+                    </div>
+                </div>
+                <div class="ar-instructions" id="arInstructions">
+                    Click on the video where you want to place the selected item.
+                </div>
+            </div>
+
+            <!-- AR Processing Indicator -->
+            <div class="ar-processing" id="arProcessing">
+                <span class="loader"></span>
+                <div>Analyzing environment...</div>
+                <div id="arProcessingProgress">Please wait</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" id="toggleAR">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 11V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h6"></path>
+                    <path d="M12 14c-1.1 0-2-.9-2-2V6h10v6c0 1.1-.9 2-2 2h-3"></path>
+                    <path d="M19 17v5"></path>
+                    <path d="M17 19h4"></path>
+                </svg>
+                Enable AR Mode
+            </button>
+            <button class="btn btn-secondary" id="toggleStats">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 3v18h18"></path>
+                    <path d="M18 17V9"></path>
+                    <path d="M13 17V5"></path>
+                    <path d="M8 17v-3"></path>
+                </svg>
+                Show Statistics
+            </button>
+            <button class="btn btn-secondary" id="toggleObjects">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="3" y1="9" x2="21" y2="9"></line>
+                    <line x1="9" y1="21" x2="9" y2="9"></line>
+                </svg>
+                Show Objects
+            </button>
+            <button class="btn btn-secondary" id="fullscreen">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M8 3H5a2 2 0 0 0-2 2v3"></path>
+                    <path d="M21 8V5a2 2 0 0 0-2-2h-3"></path>
+                    <path d="M3 16v3a2 2 0 0 0 2 2h3"></path>
+                    <path d="M16 21h3a2 2 0 0 0 2-2v-3"></path>
+                </svg>
+                Fullscreen
+            </button>
+        </div>
+    </main>
+
+    <footer>
+        <p>© 2025 Object Detection System | Powered by YOLOv8 and Flask</p>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Elements
+            const videoContainer = document.querySelector('.video-container');
+            const videoFeed = document.getElementById('videoFeed');
+            const fpsElement = document.getElementById('fps');
+            const statusElement = document.getElementById('status');
+            const modelElement = document.getElementById('model');
+
+            // Buttons
+            const toggleARButton = document.getElementById('toggleAR');
+            const toggleStatsButton = document.getElementById('toggleStats');
+            const toggleObjectsButton = document.getElementById('toggleObjects');
+            const fullscreenButton = document.getElementById('fullscreen');
+
+            // Panels
+            const arControls = document.getElementById('arControls');
+            const statsPanel = document.getElementById('statsPanel');
+            const objectsPanel = document.getElementById('objectsPanel');
+            const arInstructions = document.getElementById('arInstructions');
+            const arProcessing = document.getElementById('arProcessing');
+            const arProcessingProgress = document.getElementById('arProcessingProgress');
+
+            // AR items
+            const arItems = document.querySelectorAll('.ar-item');
+
+            // 3D AR variables
+            let scene, camera, renderer;
+            let arActive = false;
+            let selectedModel = null;
+            let loadedModels = {};
+            let modelControls = {};
+            const modelScale = {
+                'chair': 2.0,
+                'table': 0.7,
+                'bed': 0.9
+            };
+
+            // Close buttons
+            document.getElementById('closeArBtn').addEventListener('click', () => {
+                arControls.style.display = 'none';
+                toggleARButton.classList.remove('btn-active');
+                toggleARButton.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 11V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h6"></path>
+                        <path d="M12 14c-1.1 0-2-.9-2-2V6h10v6c0 1.1-.9 2-2 2h-3"></path>
+                        <path d="M19 17v5"></path>
+                        <path d="M17 19h4"></path>
+                    </svg>
+                    Enable AR Mode
+                `;
+                arActive = false;
+                videoContainer.classList.remove('ar-active');
+                clearSelectedItem();
+
+                // Clear any models in scene
+                clearScene();
+            });
+
+            document.getElementById('closeStatsBtn').addEventListener('click', () => {
+                statsPanel.style.display = 'none';
+                toggleStatsButton.classList.remove('btn-active');
+            });
+
+            document.getElementById('closeObjectsBtn').addEventListener('click', () => {
+                objectsPanel.style.display = 'none';
+                toggleObjectsButton.classList.remove('btn-active');
+            });
+
+            // Initialize Three.js
+            function initThreeJS() {
+                // Create scene
+                scene = new THREE.Scene();
+
+                // Create camera
+                const aspectRatio = videoContainer.clientWidth / videoContainer.clientHeight;
+                camera = new THREE.PerspectiveCamera(75, aspectRatio, 0.1, 1000);
+                camera.position.z = 5;
+
+                // Create renderer
+                renderer = new THREE.WebGLRenderer({
+                    canvas: document.getElementById('arCanvas'),
+                    alpha: true
+                });
+                renderer.setSize(videoContainer.clientWidth, videoContainer.clientHeight);
+                renderer.outputEncoding = THREE.sRGBEncoding;
+
+                // Add ambient light
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+                scene.add(ambientLight);
+
+                // Add directional light
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight.position.set(1, 1, 1);
+                scene.add(directionalLight);
+
+                // Handle window resize
+                window.addEventListener('resize', () => {
+                    renderer.setSize(videoContainer.clientWidth, videoContainer.clientHeight);
+                    camera.aspect = videoContainer.clientWidth / videoContainer.clientHeight;
+                    camera.updateProjectionMatrix();
+                });
+
+                // Start animation loop
+                animate();
+            }
+
+            // Clear scene of models
+            function clearScene() {
+                if (!scene) return;
+
+                scene.children.forEach(child => {
+                    if (child.isModel) {
+                        scene.remove(child);
+                    }
+                });
+
+                // Force a render update
+                if (renderer) {
+                    renderer.render(scene, camera);
+                }
+            }
+
+            // Animation loop
+            function animate() {
+                requestAnimationFrame(animate);
+                if (arActive && scene && camera && renderer) {
+                    renderer.render(scene, camera);
+                }
+            }
+
+            // Load 3D models
+            function loadModels() {
+                const modelLoader = new THREE.GLTFLoader();
+                const modelNames = ['chair', 'table', 'bed'];
+
+                modelNames.forEach(modelName => {
+                    // Load GLTF/GLB model
+                    modelLoader.load(
+                        `/static/ar/${modelName}.glb`,
+                        (gltf) => {
+                            // Model loaded successfully
+                            const model = gltf.scene;
+                            model.scale.set(
+                                modelScale[modelName],
+                                modelScale[modelName],
+                                modelScale[modelName]
+                            );
+
+                            // Set model properties
+                            model.isModel = true;
+
+                            // Store model for later use
+                            loadedModels[modelName] = model;
+                            console.log(`Loaded model: ${modelName}`);
+                        },
+                        (xhr) => {
+                            // Loading progress
+                            console.log(`${modelName} ${(xhr.loaded / xhr.total * 100)}% loaded`);
+                        },
+                        (error) => {
+                            // Error loading model
+                            console.error(`Error loading ${modelName}:`, error);
+                        }
+                    );
+                });
+                // Add inside the loadModels function
+                modelLoader.load(
+                    `/static/ar/${modelName}.glb`,
+                    (gltf) => {
+                        console.log(`SUCCESS: Model ${modelName} loaded:`, gltf);
+                        // rest of your code...
+                    },
+                    (xhr) => {
+                        console.log(`${modelName} ${(xhr.loaded / xhr.total * 100)}% loaded`);
+                    },
+                    (error) => {
+                        console.error(`ERROR loading ${modelName}:`, error);
+                    }
+                );
+            }
+
+            // Place 3D model in scene
+            function placeModel(modelName, x, y) {
+                if (!loadedModels[modelName]) {
+                    console.error(`Model ${modelName} not loaded`);
+                    return;
+                }
+
+                // Remove any existing models
+                clearScene();
+
+                // Clone the loaded model
+                const model = loadedModels[modelName].clone();
+                model.isModel = true;
+
+                // Convert screen coordinates to 3D coordinates
+                // This is a simplified conversion
+                const vector = new THREE.Vector3();
+
+                // Calculate normalized device coordinates
+                vector.x = (x / videoContainer.clientWidth) * 2 - 1;
+                vector.y = -(y / videoContainer.clientHeight) * 2 + 1;
+                vector.z = 0;
+
+                // Project model to proper position
+                vector.unproject(camera);
+                vector.sub(camera.position).normalize();
+                const distance = -camera.position.z / vector.z;
+                const pos = camera.position.clone().add(vector.multiplyScalar(distance));
+
+                // Position the model
+                model.position.copy(pos);
+
+                // Add model to scene
+                scene.add(model);
+
+                return model;
+            }
+
+            // Toggle AR controls
+            toggleARButton.addEventListener('click', function () {
+                const isVisible = arControls.style.display === 'block';
+
+                arControls.style.display = isVisible ? 'none' : 'block';
+
+                if (isVisible) {
+                    // Disable AR mode
+                    toggleARButton.classList.remove('btn-active');
+                    toggleARButton.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 11V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h6"></path>
+                            <path d="M12 14c-1.1 0-2-.9-2-2V6h10v6c0 1.1-.9 2-2 2h-3"></path>
+                            <path d="M19 17v5"></path>
+                            <path d="M17 19h4"></path>
+                        </svg>
+                        Enable AR Mode
+                    `;
+                    arActive = false;
+                    videoContainer.classList.remove('ar-active');
+                    clearSelectedItem();
+
+                    // Clear any models in scene
+                    clearScene();
+                } else {
+                    // Enable AR mode
+                    toggleARButton.classList.add('btn-active');
+                    toggleARButton.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 11V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h6"></path>
+                            <path d="M12 14c-1.1 0-2-.9-2-2V6h10v6c0 1.1-.9 2-2 2h-3"></path>
+                            <path d="M19 17v5"></path>
+                            <path d="M17 19h4"></path>
+                        </svg>
+                        Disable AR Mode
+                    `;
+                    arActive = true;
+                    videoContainer.classList.add('ar-active');
+
+                    // Initialize Three.js if not already done
+                    if (!scene) {
+                        initThreeJS();
+                        loadModels();
+                    }
+                }
+            });
+
+            // Toggle Stats Panel
+            toggleStatsButton.addEventListener('click', function () {
+                const isVisible = statsPanel.style.display === 'flex';
+
+                statsPanel.style.display = isVisible ? 'none' : 'flex';
+
+                if (isVisible) {
+                    toggleStatsButton.classList.remove('btn-active');
+                } else {
+                    toggleStatsButton.classList.add('btn-active');
+                    updateSystemStats(); // Load initial stats
+                }
+            });
+
+            // Toggle Objects Panel
+            toggleObjectsButton.addEventListener('click', function () {
+                const isVisible = objectsPanel.style.display === 'flex';
+
+                objectsPanel.style.display = isVisible ? 'none' : 'flex';
+
+                if (isVisible) {
+                    toggleObjectsButton.classList.remove('btn-active');
+                } else {
+                    toggleObjectsButton.classList.add('btn-active');
+                    fetchDetectedObjects(); // Load initial objects
+                }
+            });
+
+            // Fullscreen functionality
+            fullscreenButton.addEventListener('click', function () {
+                if (!document.fullscreenElement) {
+                    videoContainer.requestFullscreen().catch(err => {
+                        console.error(`Error attempting to enable fullscreen: ${err.message}`);
+                    });
+                } else {
+                    document.exitFullscreen();
+                }
+            });
+
+            // AR Item Selection
+            let selectedItem = null;
+
+            arItems.forEach(item => {
+                item.addEventListener('click', function () {
+                    clearSelectedItem();
+
+                    // Set selected
+                    this.classList.add('selected');
+                    selectedItem = this.getAttribute('data-item');
+                    selectedModel = selectedItem;
+
+                    // Show instructions
+                    arInstructions.classList.add('active');
+                });
+            });
+
+            function clearSelectedItem() {
+                selectedItem = null;
+                selectedModel = null;
+                arItems.forEach(item => item.classList.remove('selected'));
+                arInstructions.classList.remove('active');
+            }
+
+            // Video feed click handler for AR placement
+            videoFeed.addEventListener('click', function (event) {
+                if (!arActive || !selectedModel) return;
+
+                // Get click coordinates relative to the video
+                const rect = videoFeed.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+
+                // Show processing indicator
+                arProcessing.style.display = 'block';
+
+                // Simulate processing with progress updates
+                let progress = 0;
+                const processingInterval = setInterval(() => {
+                    progress += 5;
+                    arProcessingProgress.textContent = `Analyzing environment... ${progress}%`;
+
+                    if (progress >= 100) {
+                        clearInterval(processingInterval);
+                        placeModel(selectedModel, x, y);
+                        arProcessing.style.display = 'none';
+                    }
+                }, 150); // Completes in about 3 seconds
+            });
+
+            // Fetch detected objects from the server
+            function fetchDetectedObjects() {
+                fetch('/detected_objects')
+                    .then(response => response.json())
+                    .then(data => {
+                        updateObjectsList(data);
+                    })
+                    .catch(error => {
+                        console.error('Error fetching objects:', error);
+                        document.getElementById('objectsList').innerHTML = '<div class="object-item">No objects detected</div>';
+                    });
+            }
+
+            // Update objects list in the panel
+            function updateObjectsList(objects) {
+                const objectsList = document.getElementById('objectsList');
+                objectsList.innerHTML = '';
+
+                if (objects.length === 0) {
+                    objectsList.innerHTML = '<div class="object-item">No objects detected</div>';
+                    return;
+                }
+
+                objects.forEach(obj => {
+                    const objectItem = document.createElement('div');
+                    objectItem.className = 'object-item';
+                    objectItem.innerHTML = `
+                        <span class="object-name">${obj.name}</span>
+                        <span class="object-confidence">${Math.round(obj.confidence * 100)}%</span>
+                    `;
+
+                    // Add click handler to search for object
+                    objectItem.addEventListener('click', () => {
+                        searchForObject(obj.name);
+                    });
+
+                    objectsList.appendChild(objectItem);
+                });
+            }
+
+            // Search for object in new tab
+            function searchForObject(objectName) {
+                const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(objectName)}`;
+                window.open(searchUrl, '_blank');
+            }
+
+            // Fetch system statistics
+            function updateSystemStats() {
+                fetch('/system_stats')
+                    .then(response => response.json())
+                    .then(data => {
+                        // Update CPU usage
+                        document.getElementById('cpuUsage').textContent = `${data.cpu_percent.toFixed(1)}%`;
+                        document.getElementById('cpuBar').style.width = `${data.cpu_percent}%`;
+
+                        // Update memory usage
+                        const memoryPercent = (data.memory_used / data.memory_total) * 100;
+                        document.getElementById('memoryUsage').textContent = `${formatBytes(data.memory_used)} / ${formatBytes(data.memory_total)}`;
+                        document.getElementById('memoryBar').style.width = `${memoryPercent}%`;
+
+                        // Update GPU usage
+                        document.getElementById('integratedGpuUsage').textContent = `${data.integrated_gpu_percent.toFixed(1)}%`;
+                        document.getElementById('integratedGpuBar').style.width = `${data.integrated_gpu_percent}%`;
+
+                        document.getElementById('nvidiaTx3050Usage').textContent = `${data.nvidia_gpu_percent.toFixed(1)}%`;
+                        document.getElementById('nvidiaTx3050Bar').style.width = `${data.nvidia_gpu_percent}%`;
+
+                        // Update GPU memory
+                        const gpuMemPercent = (data.gpu_memory_used / data.gpu_memory_total) * 100;
+                        document.getElementById('gpuMemory').textContent = `${formatBytes(data.gpu_memory_used)} / ${formatBytes(data.gpu_memory_total)}`;
+                        document.getElementById('gpuMemoryBar').style.width = `${gpuMemPercent}%`;
+                    })
+                    .catch(error => {
+                        console.error('Error fetching system stats:', error);
+                    });
+            }
+
+            // Format bytes to human-readable format
+            function formatBytes(bytes, decimals = 2) {
+                if (bytes === 0) return '0 Bytes';
+
+                const k = 1024;
+                const dm = decimals < 0 ? 0 : decimals;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+            }
+
+            // Fetch statistics periodically
+            function fetchStats() {
+                fetch('/stats')
+                    .then(response => response.json())
+                    .then(data => {
+                        statusElement.textContent = data.status;
+                        modelElement.textContent = data.model;
+                        fpsElement.textContent = data.fps;
+                    })
+                    .catch(error => {
+                        console.error('Error fetching stats:', error);
+                        statusElement.textContent = 'Offline';
+                        statusElement.style.color = '#ef4444';
+                    });
+
+                // Update objects if panel is visible
+                if (objectsPanel.style.display === 'flex') {
+                    fetchDetectedObjects();
+                }
+
+                // Update system stats if panel is visible
+                if (statsPanel.style.display === 'flex') {
+                    updateSystemStats();
+                }
+            }
+
+            // Add responsiveness to video feed
+            function adjustVideoSize() {
+                const container = videoContainer.getBoundingClientRect();
+                const aspectRatio = 16 / 9; // Assuming 16:9 aspect ratio
+
+                const maxWidth = container.width;
+                const maxHeight = container.height;
+
+                let width = maxWidth;
+                let height = width / aspectRatio;
+
+                if (height > maxHeight) {
+                    height = maxHeight;
+                    width = height * aspectRatio;
+                }
+
+                videoFeed.style.width = `${width}px`;
+                videoFeed.style.height = `${height}px`;
+
+                // Update AR canvas size if it exists
+                if (renderer) {
+                    renderer.setSize(container.width, container.height);
+                    camera.aspect = container.width / container.height;
+                    camera.updateProjectionMatrix();
+                }
+            }
+
+            // Initial setup
+            window.addEventListener('resize', adjustVideoSize);
+            adjustVideoSize();
+
+            // Periodic updates
+            fetchStats();
+            setInterval(fetchStats, 2000);
+        });
+    </script>
+</body>
+
+</html>
