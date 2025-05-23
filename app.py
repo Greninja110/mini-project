@@ -34,8 +34,8 @@ app = Flask(__name__)
 os.makedirs('static/ar', exist_ok=True)
 
 # Configuration
-IP_WEBCAM_URL = "http://192.168.156.20:8080/video"  # Your IP Webcam URL
-MODEL_PATH = "yolov8m.pt"  # Using YOLOv8 nano for speed
+IP_WEBCAM_URL = "http://192.168.5.73:8080/video"  # Your IP Webcam URL
+MODEL_PATH = "yolov8n.pt"  # Using YOLOv8 nano for speed
 CONFIDENCE_THRESHOLD = 0.5
 USE_GPU = True
 PROCESS_EVERY_N_FRAMES = 1  # Process every 2nd frame to reduce load
