@@ -8,3 +8,4 @@ yolov8x.pt
 static/
 logs/
 CLAUDE.md
+.gitignore
